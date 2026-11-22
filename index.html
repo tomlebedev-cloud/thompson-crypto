@@ -133,7 +133,8 @@ const t = k => T[lang][k];
 const locale = () => (lang === 'lt' ? 'lt-LT' : 'en-US');
 const fmtMoney = v => v == null ? '–' : new Intl.NumberFormat(locale(), { style: 'currency', currency: 'USD', maximumFractionDigits: v < 1 ? 6 : 2 }).format(v);
 const fmtBig = v => v == null ? '–' : new Intl.NumberFormat(locale(), { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 }).format(v);
-const fmtPct = v => v == null ? '–' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+const fmtAxis = v => new Intl.NumberFormat(locale(), { style: 'currency', currency: 'USD', maximumFractionDigits: v >= 100 ? 0 : v >= 1 ? 2 : 4 }).format(v);
+const fmtPct = v => v == null ? '–' : new Intl.NumberFormat(locale(), { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'exceptZero' }).format(v / 100);
 
 // ---------- indicators ----------
 function sma(a, n) {
@@ -188,7 +189,10 @@ function drawChart(prices) {
   const total = prices.length + ahead;
   const all = [...prices, ...p.lo, ...p.hi];
   const min = Math.min(...all), max = Math.max(...all);
-  const padL = 76, padR = 12, padT = 12, padB = 24;
+  ctx.font = '11px system-ui, sans-serif';
+  const ticks = [0, 1, 2, 3, 4].map(g => min + (max - min) * g / 4);
+  const padL = Math.ceil(Math.max(...ticks.map(v => ctx.measureText(fmtAxis(v)).width))) + 12;
+  const padR = 12, padT = 18, padB = 32;
   const X = i => padL + (i / (total - 1)) * (w - padL - padR);
   const Y = v => h - padB - ((v - min) / (max - min || 1)) * (h - padT - padB);
 
@@ -197,7 +201,7 @@ function drawChart(prices) {
   for (let g = 0; g <= 4; g++) {
     const v = min + (max - min) * g / 4, yy = Y(v);
     ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
-    ctx.textAlign = 'right'; ctx.fillText(fmtMoney(v), padL - 6, yy + 4);
+    ctx.textAlign = 'right'; ctx.fillText(fmtAxis(v), padL - 6, yy + 4);
   }
   ctx.textAlign = 'left';
   ctx.fillText(lang === 'lt' ? 'prieš 90 d.' : '90d ago', padL, h - 6);
