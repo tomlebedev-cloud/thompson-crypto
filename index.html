@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Thompson Crypto – crypto market trends, indicators and scenarios / Kriptovaliutų tendencijos, indikatoriai ir scenarijai">
+<title>Thompson Crypto</title>
+<style>
+:root{
+  --bg:#f6f7f9;--card:#ffffff;--text:#14171f;--muted:#6b7280;--line:#e5e7eb;
+  --accent:#2563eb;--price:#2563eb;--sma20:#f59e0b;--sma50:#8b5cf6;--proj:#0ea5e9;
+  --up:#16a34a;--down:#dc2626;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0b0d12;--card:#151922;--text:#e8ebf1;--muted:#8b93a7;--line:#262c3a;--accent:#60a5fa;--price:#60a5fa;--up:#22c55e;--down:#f87171}
+}
+:root[data-theme="dark"]{--bg:#0b0d12;--card:#151922;--text:#e8ebf1;--muted:#8b93a7;--line:#262c3a;--accent:#60a5fa;--price:#60a5fa;--up:#22c55e;--down:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{margin:0;font-size:24px}
+h2{margin:0 0 8px;font-size:14px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.muted{color:var(--muted);font-size:13px}
+.controls{display:flex;gap:8px;align-items:center}
+select,button{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+.status{color:var(--muted);min-height:1.5em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.label{color:var(--muted);font-size:13px}
+.value{font-size:22px;font-weight:600;margin-top:4px}
+.up{color:var(--up)} .down{color:var(--down)}
+canvas{width:100%;height:340px;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--c)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.disclaimer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Thompson Crypto</h1>
+      <div class="muted" data-i="subtitle"></div>
+    </div>
+    <div class="controls">
+      <select id="coin" aria-label="Asset"></select>
+      <button id="langBtn" type="button"></button>
+    </div>
+  </header>
+
+  <p id="status" class="status"></p>
+
+  <section class="cards">
+    <div class="card"><div class="label" data-i="price"></div><div class="value" id="vPrice">–</div></div>
+    <div class="card"><div class="label" data-i="change"></div><div class="value" id="vChange">–</div></div>
+    <div class="card"><div class="label" data-i="mcap"></div><div class="value" id="vMcap">–</div></div>
+    <div class="card"><div class="label" data-i="vol"></div><div class="value" id="vVol">–</div></div>
+  </section>
+
+  <section class="card">
+    <h2 data-i="chart"></h2>
+    <canvas id="chart"></canvas>
+    <div class="legend">
+      <span style="--c:var(--price)" data-i="price"></span>
+      <span style="--c:var(--sma20)" data-i="sma20"></span>
+      <span style="--c:var(--sma50)" data-i="sma50"></span>
+      <span style="--c:var(--proj)" data-i="proj"></span>
+    </div>
+    <p id="scenarioNote" class="muted"></p>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2 data-i="signal"></h2>
+      <div class="value" id="signal">–</div>
+      <div class="muted" id="sigDetail"></div>
+    </div>
+    <div class="card">
+      <h2 data-i="rsi"></h2>
+      <div class="value" id="rsiVal">–</div>
+      <div class="muted" id="rsiStatus"></div>
+    </div>
+  </section>
+
+  <p class="disclaimer" data-i="disclaimer"></p>
+</div>
+
+<script>
+const LANG_KEY = 'tc-lang';
+const T = {
+  en: {
+    subtitle: 'Crypto market trends, indicators and scenarios',
+    price: 'Price', change: '24h change', mcap: 'Market cap', vol: '24h volume',
+    chart: '90-day price chart', sma20: 'SMA 20', sma50: 'SMA 50', proj: '14-day trend scenario',
+    signal: 'Trend signal', rising: 'Uptrend', falling: 'Downtrend', neutral: 'Sideways / no clear trend',
+    rsi: 'RSI (14)', ob: 'Overbought (above 70)', os: 'Oversold (below 30)', nrm: 'Normal range (30–70)',
+    loading: 'Loading data…',
+    error: 'Could not load data. The free API may be rate-limited; try again in a minute.',
+    chartError: 'Chart data unavailable.',
+    scenarioNote: 'Scenario band = ±1 standard deviation of recent price deviations from the 30-day linear trend. This is not a prediction.',
+    disclaimer: 'Thompson Crypto is an information tool, not financial advice. Crypto prices are highly volatile. Do your own research before investing.',
+    langBtn: 'LT'
+  },
+  lt: {
+    subtitle: 'Kriptovaliutų rinkos tendencijos, indikatoriai ir scenarijai',
+    price: 'Kaina', change: 'Pokytis per 24 val.', mcap: 'Rinkos kapitalizacija', vol: 'Apyvarta per 24 val.',
+    chart: '90 dienų kainų grafikas', sma20: 'SMA 20', sma50: 'SMA 50', proj: '14 dienų tendencijos scenarijus',
+    signal: 'Tendencijos signalas', rising: 'Kylanti tendencija', falling: 'Krentanti tendencija', neutral: 'Be aiškios krypties',
+    rsi: 'RSI (14)', ob: 'Perpirkta (virš 70)', os: 'Perparduota (žemiau 30)', nrm: 'Normali zona (30–70)',
+    loading: 'Kraunami duomenys…',
+    error: 'Nepavyko įkelti duomenų. Nemokamas API gali būti ribojamas; bandykite po minutės.',
+    chartError: 'Grafiko duomenys nepasiekiami.',
+    scenarioNote: 'Scenarijaus juosta = ±1 standartinis nuokrypis nuo 30 dienų tiesinės tendencijos. Tai nėra prognozė.',
+    disclaimer: 'Thompson Crypto yra informacinis įrankis, o ne finansinė rekomendacija. Kriptovaliutų kainos labai svyruoja. Prieš investuodami pasidomėkite pats.',
+    langBtn: 'EN'
+  }
+};
+const COINS = [
+  ['bitcoin', 'BTC'], ['ethereum', 'ETH'], ['solana', 'SOL'],
+  ['cardano', 'ADA'], ['ripple', 'XRP'], ['dogecoin', 'DOGE']
+];
+
+let lang = 'en';
+try {
+  lang = localStorage.getItem(LANG_KEY) || (navigator.language.startsWith('lt') ? 'lt' : 'en');
+} catch (e) {}
+
+const state = { coin: 'bitcoin', markets: null, marketError: false, series: {} };
+
+const t = k => T[lang][k];
+const locale = () => (lang === 'lt' ? 'lt-LT' : 'en-US');
+const fmtMoney = v => v == null ? '–' : new Intl.NumberFormat(locale(), { style: 'currency', currency: 'USD', maximumFractionDigits: v < 1 ? 6 : 2 }).format(v);
+const fmtBig = v => v == null ? '–' : new Intl.NumberFormat(locale(), { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 }).format(v);
+const fmtPct = v => v == null ? '–' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+
+// ---------- indicators ----------
+function sma(a, n) {
+  return a.map((_, i) => i < n - 1 ? null : a.slice(i - n + 1, i + 1).reduce((s, x) => s + x, 0) / n);
+}
+
+function rsi(a, n = 14) {
+  const out = new Array(a.length).fill(null);
+  if (a.length <= n) return out;
+  let g = 0, l = 0;
+  for (let i = 1; i <= n; i++) { const d = a[i] - a[i - 1]; if (d >= 0) g += d; else l -= d; }
+  let ag = g / n, al = l / n;
+  out[n] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  for (let i = n + 1; i < a.length; i++) {
+    const d = a[i] - a[i - 1];
+    ag = (ag * (n - 1) + Math.max(d, 0)) / n;
+    al = (al * (n - 1) + Math.max(-d, 0)) / n;
+    out[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  }
+  return out;
+}
+
+// Linear trend over last `days` points, extrapolated `ahead` points. Returns values for k = 1..ahead.
+function projection(a, days = 30, ahead = 14) {
+  const ys = a.slice(-days), N = ys.length, mx = (N - 1) / 2;
+  const my = ys.reduce((s, v) => s + v, 0) / N;
+  let num = 0, den = 0;
+  for (let i = 0; i < N; i++) { num += (i - mx) * (ys[i] - my); den += (i - mx) ** 2; }
+  const b = den ? num / den : 0, c = my - b * mx;
+  const sd = Math.sqrt(ys.reduce((s, y, i) => s + (y - (c + b * i)) ** 2, 0) / N);
+  const mid = [], lo = [], hi = [];
+  for (let k = 1; k <= ahead; k++) {
+    const v = c + b * (N - 1 + k);
+    mid.push(v); lo.push(v - sd); hi.push(v + sd);
+  }
+  return { mid, lo, hi };
+}
+
+// ---------- chart ----------
+function drawChart(prices) {
+  const cv = document.getElementById('chart');
+  const w = cv.clientWidth, h = 340, dpr = window.devicePixelRatio || 1;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const css = getComputedStyle(document.documentElement);
+  const col = n => css.getPropertyValue(n).trim();
+  const s20 = sma(prices, 20), s50 = sma(prices, 50);
+  const p = projection(prices), ahead = p.mid.length, last = prices.length - 1;
+  const total = prices.length + ahead;
+  const all = [...prices, ...p.lo, ...p.hi];
+  const min = Math.min(...all), max = Math.max(...all);
+  const padL = 76, padR = 12, padT = 12, padB = 24;
+  const X = i => padL + (i / (total - 1)) * (w - padL - padR);
+  const Y = v => h - padB - ((v - min) / (max - min || 1)) * (h - padT - padB);
+
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.strokeStyle = col('--line'); ctx.fillStyle = col('--muted'); ctx.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const v = min + (max - min) * g / 4, yy = Y(v);
+    ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(fmtMoney(v), padL - 6, yy + 4);
+  }
+  ctx.textAlign = 'left';
+  ctx.fillText(lang === 'lt' ? 'prieš 90 d.' : '90d ago', padL, h - 6);
+  ctx.textAlign = 'right';
+  ctx.fillText(lang === 'lt' ? '+14 d.' : '+14d', w - padR, h - 6);
+
+  // projection band
+  ctx.beginPath();
+  p.hi.forEach((v, k) => ctx.lineTo(X(last + k + 1), Y(v)));
+  for (let k = ahead - 1; k >= 0; k--) ctx.lineTo(X(last + k + 1), Y(p.lo[k]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(14,165,233,0.15)'; ctx.fill();
+
+  function line(arr, offset, color, width, dash) {
+    ctx.beginPath(); let started = false;
+    arr.forEach((v, i) => {
+      if (v == null) return;
+      if (!started) { ctx.moveTo(X(i + offset), Y(v)); started = true; }
+      else ctx.lineTo(X(i + offset), Y(v));
+    });
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.setLineDash(dash ? [6, 4] : []); ctx.stroke(); ctx.setLineDash([]);
+  }
+  line(s20, 0, col('--sma20'), 1.5, false);
+  line(s50, 0, col('--sma50'), 1.5, false);
+  line(prices, 0, col('--price'), 2, false);
+  // projection line from last price
+  line([prices[last], ...p.mid], last, col('--proj'), 2, true);
+}
+
+// ---------- data ----------
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function loadMarkets() {
+  try {
+    const ids = COINS.map(c => c[0]).join(',');
+    state.markets = await getJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h`);
+    state.marketError = false;
+  } catch (e) {
+    state.marketError = true;
+  }
+}
+
+async function loadSeries(id) {
+  if (state.series[id] !== undefined) return;
+  try {
+    const d = await getJSON(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`);
+    state.series[id] = d.prices.map(p => p[1]);
+  } catch (e) {
+    state.series[id] = null;
+  }
+}
+
+// ---------- render ----------
+function setText(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  if (cls !== undefined) el.className = 'value ' + cls;
+}
+
+function render() {
+  document.documentElement.lang = lang;
+  document.title = 'Thompson Crypto';
+  document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  document.getElementById('langBtn').textContent = t('langBtn');
+  document.getElementById('scenarioNote').textContent = t('scenarioNote');
+
+  const status = document.getElementById('status');
+  const m = state.markets ? state.markets.find(x => x.id === state.coin) : null;
+  status.textContent = !state.markets ? (state.marketError ? t('error') : t('loading')) : '';
+
+  const ch = m ? m.price_change_percentage_24h : null;
+  setText('vPrice', m ? fmtMoney(m.current_price) : '–');
+  setText('vChange', fmtPct(ch), ch == null ? '' : (ch >= 0 ? 'up' : 'down'));
+  setText('vMcap', m ? fmtBig(m.market_cap) : '–');
+  setText('vVol', m ? fmtBig(m.total_volume) : '–');
+
+  const prices = state.series[state.coin];
+  if (prices === undefined) {
+    document.getElementById('sigDetail').textContent = t('loading');
+  } else if (prices === null || prices.length < 2) {
+    document.getElementById('sigDetail').textContent = t('chartError');
+  } else {
+    drawChart(prices);
+    const s20 = sma(prices, 20), s50 = sma(prices, 50), r = rsi(prices);
+    const last = prices[prices.length - 1], l20 = s20[s20.length - 1], l50 = s50[s50.length - 1], lr = r[r.length - 1];
+    let sig = t('neutral'), cls = '';
+    if (l50 != null) {
+      if (last > l50 && l20 > l50) { sig = t('rising'); cls = 'up'; }
+      else if (last < l50 && l20 < l50) { sig = t('falling'); cls = 'down'; }
+    }
+    setText('signal', sig, cls);
+    document.getElementById('sigDetail').textContent = `${t('sma20')}: ${fmtMoney(l20)} · ${t('sma50')}: ${fmtMoney(l50)}`;
+    const rs = lr == null ? '–' : lr.toFixed(1);
+    const rcls = lr == null ? '' : (lr > 70 ? 'down' : lr < 30 ? 'up' : '');
+    setText('rsiVal', rs, rcls);
+    document.getElementById('rsiStatus').textContent = lr == null ? '' : (lr > 70 ? t('ob') : lr < 30 ? t('os') : t('nrm'));
+  }
+}
+
+function buildCoinSelect() {
+  const sel = document.getElementById('coin');
+  sel.innerHTML = COINS.map(([id, sym]) => `<option value="${id}">${sym}</option>`).join('');
+  sel.value = state.coin;
+}
+
+// ---------- events & init ----------
+document.getElementById('coin').addEventListener('change', async e => {
+  state.coin = e.target.value;
+  render();
+  await loadSeries(state.coin);
+  render();
+});
+
+document.getElementById('langBtn').addEventListener('click', () => {
+  lang = lang === 'en' ? 'lt' : 'en';
+  try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+  render();
+});
+
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+
+(async function init() {
+  buildCoinSelect();
+  render();
+  await loadMarkets();
+  await loadSeries(state.coin);
+  render();
+  setInterval(async () => { await loadMarkets(); render(); }, 60000);
+})();
+</script>
+</body>
+</html>
