@@ -299,7 +299,7 @@ function render() {
     }
     setText('signal', sig, cls);
     document.getElementById('sigDetail').textContent = `${t('sma20')}: ${fmtMoney(l20)} · ${t('sma50')}: ${fmtMoney(l50)}`;
-    const rs = lr == null ? '–' : lr.toFixed(1);
+    const rs = lr == null ? '–' : new Intl.NumberFormat(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(lr);
     const rcls = lr == null ? '' : (lr > 70 ? 'down' : lr < 30 ? 'up' : '');
     setText('rsiVal', rs, rcls);
     document.getElementById('rsiStatus').textContent = lr == null ? '' : (lr > 70 ? t('ob') : lr < 30 ? t('os') : t('nrm'));
